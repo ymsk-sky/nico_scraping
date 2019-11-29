@@ -1,31 +1,57 @@
 # -*- coding: utf-8 -*-
 
 import cv2
+import numpy as np
 
 from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver import ActionChains
 
+H_BLUE = 120
+H_GREEN = 60
+
 def main():
     url = get_source_url(id='sm31508454')
-    play_movie(url)
+    start, end, fps = analyze_movie(url)
 
 
-def play_movie(url):
+def analyze_movie(url):
     video = cv2.VideoCapture(url)
+    if(not video.isOpened()):
+        return
 
+    fps = video.get(cv2.CAP_PROP_FPS)
+
+    record = False
+    recording = False
+    start_point = 0
+    end_point = 0
+    frame_num = 1
     while(1):
         ret, frame = video.read()
         if(not ret):
             break
-        cv2.imshow('frame', frame)
+        hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+        h, _, _ = cv2.split(hsv)
+        hm = int(np.median(h))
 
-        if(cv2.waitKey(30) & 0xFF == ord('q')):
+        if(hm == H_BLUE and not start_recorded and not recording):
+            start_recorded = True
+            recording = True
+            start_point = frame_num
+        if(not hm == H_BLUE and recording):
+            recording = False
+            end_point = frame_num - 1
+
+        frame_num += 1
+        if(cv2.waitKey(1) & 0xFF == ord('q')):
             break
 
     video.release()
     cv2.destroyAllWindows()
+
+    return start_point, end_point, fps
 
 
 def get_source_url(id='sm31508454'):
